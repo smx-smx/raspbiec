@@ -47,6 +47,7 @@
 #include <linux/hrtimer.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <linux/of_address.h>
 #include "raspbiecdrv.h"
 
 /* Module information */
@@ -54,6 +55,23 @@ MODULE_AUTHOR("Antti Paarlahti <antti.paarlahti@outlook.com>");
 MODULE_DESCRIPTION("Commodore IEC serial bus handler for Raspberry Pi");
 MODULE_VERSION("1.0");
 MODULE_LICENSE("GPL");
+
+void __iomem *st_base;
+
+static int st_base_init(void){
+    struct device_node *np;
+    np = of_find_compatible_node(NULL, NULL, "brcm,bcm2835-system-timer");
+    if (!np) {
+        return -1;
+    }
+
+    st_base = of_iomap(np, 0);
+    if (!st_base) {
+        return -1;
+    }
+
+    return 0;
+}
 
 /* Device variables */
 static struct class* raspbiec_class = NULL;
@@ -532,6 +550,12 @@ static int __init raspbiec_module_init(void)
     int irqs = 0;
 
     info("module loaded\n");
+
+    if(st_base_init() < 0){
+        err("failed to retrieve the system timer base address\n");
+        return -1;
+    }
+
     raspbiec_major = register_chrdev(0, DEVICE_NAME, &fops);
     if (raspbiec_major < 0)
     {
@@ -908,6 +932,7 @@ static bool raspbiec_state_selector(int* state, int event, int value)
         {
             iec_cancel_timeout();
         }
+        /* FALLTHROUGH */
     case IEC_NEXT_CMD_BYTE:
         /* Check the event if it exists rather than the current value,
          * because a missed ATN edge might have been synthesized */
@@ -1002,6 +1027,7 @@ static bool raspbiec_state_selector(int* state, int event, int value)
             wait = iec_wait_data(IEC_HI);
             break;
         }
+        /* FALLTHROUGH */
     case IEC_LISTENER_READY_FOR_DATA:
         if (iec_wait_clk_busy(IEC_LO, 250))
         {
@@ -1139,6 +1165,7 @@ static bool raspbiec_state_selector(int* state, int event, int value)
             break;
         }
         msg(2,"raspbiec -> %c0x%02X\n",ABSHEX(iec_byte));
+        /* FALLTHROUGH */
     case IEC_SEND_BYTE:
         iec_set_data(IEC_HI);
         if (IEC_HI == iec_get_data())
@@ -1207,6 +1234,7 @@ static bool raspbiec_state_selector(int* state, int event, int value)
             break;
         }
         event = iec_no_event; /* Fall through, ensure no accidental timeout */
+        /* FALLTHROUGH */
     case IEC_REMOTE_LISTENER_DATA_ACCEPTED:
         if (event == iec_timeout)
         {
@@ -1230,6 +1258,7 @@ static bool raspbiec_state_selector(int* state, int event, int value)
             wait = iec_wait_data(IEC_LO);
             break;
         }
+        /* FALLTHROUGH */
     case IEC_EOI_HANDSHAKE_END:
         EOI_state = iec_EOI_sent;
         next_state = IEC_REMOTE_LISTENER_READY_FOR_DATA;
@@ -1607,7 +1636,7 @@ static void iec_set_data(int value)
 static uint32_t stc_read_cycles(void)
 {
     /* STC: a free running counter that increments at the rate of 1MHz */
-    return readl(__io_address(ST_BASE + 0x04));
+    return readl(st_base + 0x04);
 }
 
 static void set_debugpin(int pin, int value)
