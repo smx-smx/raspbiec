@@ -51,7 +51,7 @@ KERNELDIR ?= ${KERNEL_SRC}
 PWD       := $(shell pwd)
 
 raspbiecdrv:
-	$(MAKE)  ARCH=arm CROSS_COMPILE=${CCPREFIX} -C $(KERNELDIR) SUBDIRS=$(PWD) modules
+	$(MAKE)  ARCH=arm CROSS_COMPILE=${CCPREFIX} -C $(KERNELDIR) M=$(PWD) modules
 
 endif
 
