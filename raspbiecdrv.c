@@ -596,9 +596,9 @@ static int __init raspbiec_module_init(void)
     INIT_KFIFO(raspbiec_write_fifo);
 
     /* Init GPIOs */
-    if (gpio_request_array(gpios, ARRAY_SIZE(gpios)))
+    if ((retval = gpio_request_array(gpios, ARRAY_SIZE(gpios))))
     {
-        err("trouble requesting GPIOs");
+        err("trouble requesting GPIOs: %d\n", retval);
         goto failed_gpioreq;
     }
 
