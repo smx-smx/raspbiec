@@ -838,6 +838,8 @@ void drive::receive_name_or_command(drive::channel &ch)
 	else
 		printf("filename \"%s\"\n",ch.ascii.c_str());
 
+	parse(ch);
+
 	// Command is either OPEN on ch15 or PRINT#
 	if (ch.number == 15 ||
 		ch.buscmd == device::Receive)
